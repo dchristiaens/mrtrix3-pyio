@@ -15,6 +15,7 @@ pip install .
 
 ## Example use
 
+Basic use:
 ```
 >>> from mrtrix3.io import load_mrtrix
 >>> im = load_mrtrix('dwi.mif')      # read an image from file
@@ -23,4 +24,11 @@ pip install .
 (2.5, 2.5, 2.5, nan)
 >>> im.data *= 2            # access and edit the image data as a numpy array
 >>> im.save('dwi_x2.mif')   # save the result to a new file
+```
+You can also do neat little things like:
+```
+mask = load_mrtrix('mask.mif')
+>>> for vox, m in zip(im, mask):
+>>>     if m:
+>>>        process_voxel(vox)
 ```
