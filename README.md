@@ -27,7 +27,7 @@ Basic use:
 ```
 You can also do neat little things like:
 ```
-mask = load_mrtrix('mask.mif')
+>>> mask = load_mrtrix('mask.mif')
 >>> for vox, m in zip(im, mask):
 >>>     if m:
 >>>        process_voxel(vox)
