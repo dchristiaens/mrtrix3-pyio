@@ -141,19 +141,17 @@ class Image (object):
             f.write('mrtrix image\n')
             f.write('dim: ' + self._to_csv(self.shape) + '\n');
             f.write('vox: ' + self._to_csv(self.vox) + '\n')
-            f.write('layout: ' + self._to_csv(self.layout) + '\n')
+            f.write('layout: ' + self._to_csv(self.layout, precision='%s') + '\n')
             f.write('datatype: ' + _dtdict_inv[self.dtype.descr[0][1]] + '\n')
-            f.write('transform: ' + self._to_csv(self.transform[0,:]) + '\n')
-            f.write('transform: ' + self._to_csv(self.transform[1,:]) + '\n')
-            f.write('transform: ' + self._to_csv(self.transform[2,:]) + '\n')
+            f.write(self._to_csv2D(self.transform, 'transform: '))
             if self.labels is not None:
-                f.write('labels: ' + self._to_csv(self.labels) + '\n')
+                f.write('labels: ' + self._to_csv(self.labels, precision='%s') + '\n')
             if self.units is not None:
-                f.write('units: ' + self._to_csv(self.units) + '\n')
-            for comment in self.comments:
-                f.write('comments: ' + comment + '\n')
-            for k in [] if self.grad is None else range(self.grad.shape[0]):
-                f.write('dw_scheme: ' + self._to_csv(self.grad[k,:]) + '\n')
+                f.write('units: ' + self._to_csv(self.units, precision='%s') + '\n')
+            if self.comments:
+                f.write('comments: %s\n' * len(self.comments) % tuple(self.comments))
+            if self.grad is not None:
+                f.write(self._to_csv2D(self.grad, line_prefix='dw_scheme: '))
             f.flush()
             offset = f.tell() + 13
             offset += int(np.floor(np.log10(offset))) + 1
@@ -188,8 +186,35 @@ class Image (object):
         return tuple('+'+str(s) for s in np.argsort(np.argsort(np.abs(self.strides))))
 
 
-    def _to_csv(self, a):
-        return ','.join(map(str, a))
+    def _to_csv(self, a, precision=None):
+        if isinstance(precision, str):
+            fmt = ','.join([precision]*len(a))
+            return fmt % tuple(a)
+        if precision is None:
+            if isinstance(a, np.ndarray):
+                precision = np.finfo(a.dtype).precision
+            else:
+                precision = 16
+        elif not isinstance(precision, int) or precision < 0:
+            raise ValueError('precision needs to be non-negative integer, got ' + str(precision))
+        return ','.join(['%.'+str(precision)+'g']*len(a)) % tuple(a)
+
+
+    def _to_csv2D(self, a, line_prefix='', postfix='\n', precision=None):
+        if not isinstance(a, np.ndarray):
+            a = np.asanyarray(a)
+        if a.ndim != 2:
+            raise ValueError('require 2D array, got array of shape ' + str(a.shape))
+        if precision is None:
+            if isinstance(a, np.ndarray):
+                precision = np.finfo(a.dtype).precision
+            else:
+                precision = 16
+        elif not isinstance(precision, int) or precision < 0:
+            raise ValueError('precision needs to be non-negative integer, got ' + str(precision))
+        fmt = [','.join(['%.'+str(precision)+'g'] * a.shape[1])] * a.shape[0]
+        fmt = line_prefix+(postfix+line_prefix).join(fmt)
+        return fmt % tuple(a.ravel()) + postfix
 
 
     def __str__(self):
