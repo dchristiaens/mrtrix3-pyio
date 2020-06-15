@@ -30,12 +30,12 @@ class Image (object):
 
     def __init__(self, data=None, vox=(),
                        transform=np.eye(4),
-                       grad=None, comments=[]):
+                       grad=None, comments=None):
         self.data = data
         self.vox = vox
         self.transform = transform
         self.grad = grad
-        self.comments = comments
+        self.comments = comments if comments is not None else []
 
 
     _array_attr = ['shape', 'ndim', 'dtype', 'size', 'strides', 'nbytes']
