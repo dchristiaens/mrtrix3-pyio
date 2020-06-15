@@ -7,6 +7,7 @@ Copyright (c) 2017 - Daan Christiaens (daan.christiaens@gmail.com)
 import numpy as np
 import sys
 import copy
+import gzip
 
 
 _dtdict = {'Int8': '|i1', 'UInt8': '|u1', 'Int16': '=i2', 'UInt16': '=u2', 'Int16LE': '<i2', 'UInt16LE': '<u2', 'Int16BE': '>i2', 'UInt16BE': '>u2', 'Int32': '=i4', 'UInt32': '=u4', 'Int32LE': '<i4', 'UInt32LE': '<u4', 'Int32BE': '>i4', 'UInt32BE': '>u4', 'Float32': '=f4', 'Float32LE': '<f4', 'Float32BE': '>f4', 'Float64': '=f8', 'Float64LE': '<f8', 'Float64BE': '>f8', 'CFloat32': '=c8', 'CFloat32LE': '<c8', 'CFloat32BE': '>c8', 'CFloat64': '=c16', 'CFloat64LE': '<c16', 'CFloat64BE': '>c16'}
@@ -86,11 +87,23 @@ class Image (object):
         else:
             return np.prod(self.shape[:3])
 
-
-    def load(self, filename):
-        ''' Load MRtrix .mif file. '''
+    def load(self, filename, header_only=False, memmap=False):
+        ''' Load MRtrix .mif or .mif.gz file. '''
+        is_gz = False
+        if memmap:
+            if is_gz:
+                raise IOError('memory mapping of .mif.gz files is not supported')
+            if header_only:
+                raise IOError('memory mapping and header_only are mutually exclusive')
+        if filename.endswith('.mif'):
+            ofun = open
+        elif filename.endswith('.mif.gz'):
+            ofun = gzip.open
+            is_gz = True
+        else:
+            raise IOError('file extension not supported: ' + str(filename))
         # read image header
-        with open(filename, 'r', encoding='latin-1') as f:
+        with ofun(filename, 'rt', encoding='latin-1') as f:
             fl = ''
             tr_count = 0
             while fl != 'END':
@@ -121,14 +134,22 @@ class Image (object):
                         self.grad = gbrow
                     else:
                         self.grad = np.vstack([self.grad, gbrow])
-        # read image data
-        with open(filename, 'rb') as f:
-            f.seek(offset, 0)
-            image = np.fromfile(file=f, dtype=dt)
-            if (dtstr == 'Bit'):
-                image = np.unpackbits(image)
-            s, o = self._layout_to_strides(layout, imsize, dt)
-            self.data = np.ndarray(shape=imsize, dtype=dt, buffer=image, strides=s, offset=o)
+        if not header_only:
+            # read image data
+            with ofun(filename, 'rb') as f:
+                if is_gz:
+                    f.seek(offset, 0)
+                    buf = f.read()
+                    image = np.frombuffer(buffer=buf, dtype=dt)
+                elif memmap:
+                    image = np.memmap(f, mode='r', dtype=dt, offset=offset)  # offset required in memmap
+                else:
+                    f.seek(offset, 0)
+                    image = np.fromfile(file=f, dtype=dt)
+                if (dtstr == 'Bit'):
+                    image = np.unpackbits(image)
+                s, o = self._layout_to_strides(layout, imsize, dt)
+                self.data = np.ndarray(shape=imsize, dtype=dt, buffer=image, strides=s, offset=o)
         return self
 
 
@@ -136,6 +157,8 @@ class Image (object):
         ''' Save image to MRtix .mif file. '''
         if self.data is None:
             raise RuntimeError('Image data not set.')
+        if not filename.endswith('.mif'):
+            raise IOError('only .mif file type supported for writing')
         # write image header
         with open(filename, 'w', encoding='latin-1') as f:
             f.write('mrtrix image\n')
@@ -224,10 +247,10 @@ class Image (object):
         return out
 
 
-def load_mrtrix(filename):
+def load_mrtrix(filename, **kwargs):
     ''' Load image in mrtrix format. '''
     img = Image()
-    img.load(filename)
+    img.load(filename, **kwargs)
     return img
 
 
