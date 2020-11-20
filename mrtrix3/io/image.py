@@ -166,7 +166,7 @@ class Image (object):
             f.write('vox: ' + self._to_csv(self.vox) + '\n')
             f.write('layout: ' + self._to_csv(self.layout, precision='%s') + '\n')
             f.write('datatype: ' + _dtdict_inv[self.dtype.descr[0][1]] + '\n')
-            f.write(self._to_csv2D(self.transform, 'transform: '))
+            f.write(self._to_csv2D(self.transform[:3], 'transform: '))
             if self.labels is not None:
                 f.write('labels: ' + self._to_csv(self.labels, precision='%s') + '\n')
             if self.units is not None:
